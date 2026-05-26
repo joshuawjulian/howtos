@@ -56,39 +56,30 @@ You'll also have a **VS Code Dev Container** for local development that is *lite
 
 ```mermaid
 flowchart LR
-    subgraph laptop["Your laptop (WSL2)"]
-        devc["VS Code<br/>Dev Container<br/>(dev stage of Dockerfile)"]
-    end
+    devc["VS Code Dev Container<br/>(your laptop, WSL2)"]
 
     subgraph github["GitHub"]
         direction TB
         repo["repo<br/>(your code)"]
-        build["Actions: build.yml<br/>Buildx → runtime stage"]
+        build["Actions: build.yml<br/>Buildx, runtime stage"]
         deploy["Actions: deploy.yml<br/>ssh deploy@vps"]
+        repo --> build
+        build -.->|"workflow_run<br/>on success"| deploy
     end
 
-    ghcr[("GHCR registry<br/>:latest + :sha-abc123")]
+    ghcr[("GHCR registry<br/>:latest + :sha-...")]
 
     subgraph vps["Your VPS"]
         direction TB
-        subgraph infrastack["infra/ stack"]
-            pg["Postgres"]
-            caddy["Caddy"]
-        end
-        subgraph appstack["per-app stacks"]
-            app1["app1"]
-            app2["app2"]
-            appN["appN"]
-        end
-        infrastack -.-|"shared<br/>network"|- appstack
+        infra["infra/ stack<br/>(Postgres, Caddy)"]
+        apps["per-app stacks<br/>(app1, app2, appN)"]
+        infra -. "shared network" .- apps
     end
 
     devc -->|"git push"| repo
-    repo --> build
     build -->|"docker push"| ghcr
-    build -.->|"workflow_run<br/>on success"| deploy
-    deploy -->|"compose pull<br/>+ up -d"| appstack
-    ghcr -.->|"compose pull"| appstack
+    deploy -->|"compose pull<br/>+ up -d"| apps
+    ghcr -.->|"compose pull"| apps
     devc -.->|"ssh myvps<br/>(admin debug)"| vps
 ```
 
@@ -2013,10 +2004,10 @@ flowchart TD
 
     running["new container running on VPS"]
 
-    push --> build
-    build --> image
-    image -.->|"workflow_run trigger"| deploy
-    deploy --> running
+    push --> b1
+    b5 --> image
+    image -.->|"workflow_run trigger"| d1
+    d6 --> running
 ```
 
 **Total: ~90–120 seconds from push to live.**
