@@ -34,7 +34,7 @@ Each how-to lives in its own subdirectory. The main content is always `README.md
 
 ## Writing standards
 
-Every how-to in this repo must satisfy **six standards**. These aren't suggestions; they're load-bearing. If a how-to lacks one, it's incomplete.
+Every how-to in this repo must satisfy **seven standards**. These aren't suggestions; they're load-bearing. If a how-to lacks one, it's incomplete.
 
 ### 1. Opinionated
 
@@ -234,6 +234,205 @@ Automation is also how the doc stays useful as the writer gets older / has less 
 - Decisions that require human judgment (e.g., which Discord token to use, which domain name to attach).
 - Irreversible operations where a wrong automated step is worse than a wrong manual one (e.g., DROP TABLE in prod).
 
+### 7. GitHub-renderable (rich GFM)
+
+The doc renders correctly **on GitHub** when pushed to this repo — because that's where I actually read it. The doc uses **GitHub-Flavored Markdown (GFM)** features wherever they materially improve clarity over plain Markdown.
+
+**Why:** I read these docs from my phone, my browser at work, my IDE, sometimes from someone else's computer. GitHub is the lowest common denominator and the place where the rendered version lives. Anything that doesn't render there is invisible to me at the moment I most need the doc. Within the GFM constraint, *using* the modern features — math, diagrams, admonitions, collapsible sections — is what makes a long doc actually scannable on a 6-inch phone screen at 11pm.
+
+**How to apply** — the GFM feature inventory, as of 2026-05-26:
+
+**Baseline (always fair game):**
+
+- Tables with alignment.
+- Task lists (`- [ ]` and `- [x]`) — great for verification checklists.
+- Fenced code blocks with language tags (always specify a language for syntax highlighting).
+- Footnotes for tangential asides[^1].
+- Autolinking — plain `https://...` URLs become links.
+- Strikethrough (`~~text~~`).
+- Headers up to 6 deep (don't go past 4 in practice).
+
+[^1]: like this one — used for context that would interrupt flow if inlined.
+
+**Admonitions** (GitHub added support in late 2023). Five flavors:
+
+```markdown
+> [!NOTE]
+> Useful non-obvious context.
+
+> [!TIP]
+> Helpful advice that's not strictly necessary.
+
+> [!IMPORTANT]
+> Crucial information necessary for the reader to succeed.
+
+> [!WARNING]
+> Content demanding immediate attention. Can break things.
+
+> [!CAUTION]
+> Negative consequences of an action — use for "don't do this."
+```
+
+Use sparingly. `[!WARNING]` for things that can break prod. `[!NOTE]` for important non-obvious context. Overuse dilutes the signal — three callouts on one page is fine; ten is shouting.
+
+**Math via LaTeX** (GitHub added in mid-2022). Inline math with `$...$`:
+
+```markdown
+The complexity is $O(n \log n)$.
+```
+
+Block math with `$$...$$`:
+
+```markdown
+$$
+\int_0^\infty e^{-x^2} dx = \frac{\sqrt{\pi}}{2}
+$$
+```
+
+Use when explaining algorithms, statistics, performance characteristics, or anything where the math is genuinely clearer than prose. Don't use math just to look academic — equations should clarify something the prose can't.
+
+**Mermaid diagrams** (GitHub added in 2022). Replaces ASCII art for non-trivial diagrams:
+
+````markdown
+```mermaid
+graph LR
+  A[VS Code<br/>Dev Container] -->|git push| B(GitHub)
+  B -->|build.yml| C{Buildx}
+  C -->|push| D[(GHCR)]
+  D -->|deploy.yml| E[VPS]
+```
+````
+
+Renders as actual SVG on GitHub; ASCII art is just monospace text by comparison.
+
+Use Mermaid for:
+- Architecture diagrams (`graph LR` / `graph TD`)
+- Sequence diagrams (`sequenceDiagram`)
+- State machines (`stateDiagram-v2`)
+- Decision trees / flow charts
+- Gantt charts (rare)
+
+Don't use Mermaid for:
+- Simple linear lists (a bulleted list is clearer)
+- Diagrams with more than ~10 nodes (gets messy)
+- Anything that's already a clean table
+
+**Collapsible sections** via `<details>` / `<summary>`:
+
+```markdown
+<details>
+<summary>Full Dockerfile (click to expand)</summary>
+
+```dockerfile
+FROM python:3.12-slim AS base
+... 80 lines ...
+```
+</details>
+```
+
+Use for:
+- Full config dumps that are reference-but-not-prose.
+- Long stack traces in troubleshooting.
+- Optional appendix material.
+- Alternative versions ("show me the Node.js equivalent" etc.).
+
+Don't use to hide content that's part of the main reading flow.
+
+**Emoji shortcodes** — sparingly. `:rocket:` → 🚀, `:warning:` → ⚠️, `:white_check_mark:` → ✅. Useful as status indicators in tables. Don't pepper prose.
+
+**Status badges via shields.io** — for repo-level READMEs (less relevant for individual how-tos), e.g. `![CI](https://img.shields.io/github/actions/workflow/status/...)`.
+
+**Anti-patterns:**
+
+- **Don't use custom HTML / CSS.** GitHub sanitizes most of it. `<div class="...">` and inline styles get stripped. Anything you want to render reliably must be expressible in markdown or GFM extensions.
+- **Don't use Pandoc-only or non-GFM extensions** like `{: .class}` attribute blocks, `[[wikilinks]]`, or `:::admonition` fences. They render as literal text on GitHub.
+- **Don't write ASCII art when Mermaid would do.** ASCII renders in plaintext but loses badly to Mermaid's clarity on GitHub.
+- **Don't nest admonitions** or stack `[!WARNING]` callouts back to back — they stop being warnings.
+- **Don't use math purely for aesthetics.** It should explain something. A page of unmotivated LaTeX is worse than a paragraph of clear prose.
+
+**Maintenance discipline:** Check the [GFM feature list](https://docs.github.com/en/get-started/writing-on-github) once a year. New features arrive regularly — math in 2022, Mermaid in 2022, admonitions in 2023. When something useful lands, update this standard.
+
+**Spot-check before pushing:** Open the rendered markdown on github.com after pushing. Look at it on a phone if possible. If a section doesn't render the way you intended, that's the bug — fix the markdown, not the renderer.
+
+---
+
+## Default tech stack
+
+These are the **preferred tools and frameworks** for new how-tos and the projects they cover. They're **defaults**, not mandates — when a specific how-to has a real reason to deviate, that's fine, but explain the deviation in that doc rather than pretending the default doesn't exist.
+
+This section exists to keep the repo's recommendations *coherent*. If one how-to recommends Postgres + SvelteKit + Bun and another recommends MongoDB + Next.js + Node, the reader can't reuse infrastructure between projects. The defaults ensure each new project plugs into the same stack.
+
+### Languages and runtimes
+
+| Domain | Default | Notes |
+|---|---|---|
+| Web apps, CLIs, scripts in JS land | **TypeScript** | Always. Even for 50-line scripts. The editor experience pays for itself. |
+| JavaScript runtime | **Bun** | Fast (5-10× Node), single binary, native TypeScript, pleasant DX. Falls back to Node+pnpm only when a specific dependency doesn't work on Bun. |
+| Data / ML / scripting / scientific | **Python 3.12+** | With **`uv`** as the universal tool (package management, venv, running, building). Never `pip+venv+pip-tools`. |
+| Performance-critical services / CLIs | **Go** | When a CLI needs to ship as a single binary, or a service needs latency Go gives you. |
+| Anything systems-level | **Rust** | When the safety guarantees matter. |
+
+### Web frameworks
+
+| Use case | Default |
+|---|---|
+| Full-stack web app (SSR + client) | **SvelteKit** |
+| Pure SPA or embeddable widget | **Svelte** (without Kit) |
+| Marketing site / docs | **SvelteKit static adapter**, or a static-site generator if SvelteKit is overkill |
+
+> [!NOTE]
+> Prefer SvelteKit's built-in primitives over adding libraries — form actions, load functions, hooks, the file-based router. Reach for a library only when the built-in primitive genuinely doesn't cover the case.
+
+Avoid React / Next / Vue / Nuxt for *new* projects covered by how-tos here, unless:
+
+- The project must integrate with an existing React ecosystem.
+- A specific library you need exists only in React.
+- $WORK uses it and the how-to is documenting how to maintain that codebase.
+
+### Databases
+
+| Use case | Default |
+|---|---|
+| Relational data, production | **Postgres** (latest stable major, pinned in compose) |
+| Local-only / ephemeral | **SQLite** is fine for development; Postgres for anything that crosses environments |
+| Caching / ephemeral key-value | **Redis** when caching is genuinely needed; otherwise just use Postgres |
+| Full-text search | Postgres `pg_trgm` and `tsvector` first; reach for OpenSearch/Meilisearch only at scale |
+| Time-series | Postgres + TimescaleDB extension as default; specialized stores only if necessary |
+
+Avoid MySQL, MariaDB, MongoDB, DynamoDB for new how-tos unless the use case specifically demands them.
+
+### Infrastructure / hosting
+
+| Use case | Default |
+|---|---|
+| Personal hosting | A VPS provisioned per [vps-from-zero](./vps-from-zero/README.md). |
+| CI/CD | GitHub Actions. |
+| Container registry | GHCR. |
+| Reverse proxy | Caddy. |
+| Container orchestration | Docker Compose. K8s is explicitly out unless ≥3 nodes. |
+
+### Why these defaults
+
+- **TypeScript**: type safety pays compounding dividends as a codebase grows. Even for a tiny script, the editor experience (autocomplete, refactoring, jump-to-definition) is meaningfully better. The cost (a tsconfig and a build step) is one-time.
+- **Bun**: as of 2026, it's measurably faster than Node for nearly every operation (`bun install`, `bun test`, `bun run`), supports TypeScript natively without a build step in dev, ships as a single binary, and has the cleanest API for shell scripting in JS. The DX gap over Node has stopped being subtle.
+- **Svelte / SvelteKit**: smaller bundles, less boilerplate, and faster runtime than the React family. Reactivity is part of the language (`$state`, `$derived` in Svelte 5), not a hook system grafted on top. The framework gets out of the way.
+- **Postgres**: most mature open-source database, every feature you'd reach for (JSON, full-text search, geo, recursive CTEs, materialized views, logical replication), permissive license, predictable behavior. The only database I trust to not lose data.
+
+### When to deviate
+
+The defaults aren't mandates. Deviate when:
+
+- **The integration point requires a specific stack.** Contributing to a React project means writing React.
+- **A specific feature only exists in another tool.** ClickHouse for OLAP, Redis for pub/sub, etc.
+- **An existing codebase already uses something else** and the how-to is documenting how to work with it.
+- **A new tool has clearly surpassed the default.** When that happens, update this section *first*, then write the how-to.
+
+When deviating in a how-to, **explain why in one paragraph** within that doc. Don't write a SvelteKit-killer alternative without acknowledging the default and explaining why this specific case calls for the deviation.
+
+### Maintenance discipline
+
+Defaults rot. Once a year, sweep this section and verify each pick is still the right one. Bun, in particular, is on a fast trajectory — if it has settled (or been overtaken), update accordingly.
+
 ---
 
 ## What's in this repo
@@ -416,6 +615,7 @@ When adding content:
 - [ ] The opinionated recommendation is stated early and stated clearly.
 - [ ] **Latest stable versions of every tool referenced** (or explicit "as of <date>" annotation if a future bump is expected). No legacy tooling unless explicitly justified.
 - [ ] **Manual procedures are last resort.** Anywhere a manual step appears, either (a) automation is genuinely impossible and the doc says why, or (b) the same step is also shown as an automation.
+- [ ] **Renders correctly on GitHub.** Push, then verify on github.com — open on a phone if possible. GFM features (admonitions, math, Mermaid, collapsible sections) are used where they improve clarity; no custom HTML/CSS or non-GFM extensions.
 
 ### Things to NEVER do
 
@@ -426,6 +626,7 @@ When adding content:
 - **Don't bloat the doc to seem thorough.** If a topic is genuinely a 200-line doc, that's fine. If it's a 200-line doc that should be 50, that's bad. The standards are about *depth in the right places*, not *length*.
 - **Don't recommend legacy tooling.** If `uv` exists, don't recommend `pip+venv+pip-tools`. If `docker compose` (v2) is the current plugin, don't reference `docker-compose` (v1, EOL since 2023). If GHA `actions/checkout@v4` is the current major, don't pin to `@v3`. Bleeding edge is the default; deviations need justification.
 - **Don't document manual workflows as the canonical path** when an automated one exists. Manual instructions belong in rollback / debug / one-time-bootstrap sections only.
+- **Don't use non-GFM markdown extensions.** Pandoc attributes (`{: .class}`), wikilinks (`[[page]]`), `:::admonition` fences, inline HTML/CSS — none of these render on GitHub. Stick to what GFM supports.
 
 ---
 
