@@ -2,6 +2,9 @@
 
 > Take a containerized app from "I'm editing code in a VS Code Dev Container" to "running on my VPS, automatically, on every push to main." Companion to [vps-from-zero](../vps-from-zero/README.md), which provisions the server this guide deploys to.
 
+> [!NOTE]
+> **Last validated: 2026-05.** Tool versions reflect current stable: Python 3.12, Postgres 16, `uv` current, Docker Compose v2 (with `develop.watch.sync`), GHA action majors `actions/checkout@v4` / `docker/setup-buildx-action@v3` / `docker/build-push-action@v5` / `docker/metadata-action@v5` / `appleboy/ssh-action@v1`. Bump and re-validate annually per CLAUDE.md standard #5.
+
 This document is structured around **the lifecycle of one code change** — the journey from your fingers on a keyboard to a container running on the VPS. Every section explains both *what* you're doing and *why* — with enough mechanical detail that when something breaks, you can find the layer it broke at.
 
 ## What you'll have at the end
@@ -51,49 +54,42 @@ You'll also have a **VS Code Dev Container** for local development that is *lite
 
 ## 1. The shape: how a code change reaches production
 
-```
-┌────────────────────┐     git push origin main      ┌──────────────────┐
-│  VS Code, inside   │ ────────────────────────────► │     GitHub       │
-│  Dev Container,    │                                │   (your repo)    │
-│  on your laptop    │                                └─────────┬────────┘
-│  (WSL2)            │                                          │
-└────────────────────┘                                          │ build.yml
-        ▲                                                       │ runs
-        │                                                       ▼
-        │ ssh-agent forwarded                          ┌──────────────────┐
-        │ Same Dockerfile (dev stage)                  │  GitHub Actions  │
-        │ Same Postgres service                        │  Buildx build    │
-        │ Same code                                    │  runtime stage   │
-        │                                              └─────────┬────────┘
-        │                                                        │ docker push
-        │                                                        ▼
-        │                                              ┌──────────────────┐
-        │                                              │  GHCR registry   │
-        │                                              │  :latest         │
-        │                                              │  :sha-abc123     │
-        │                                              └─────────┬────────┘
-        │                                                        │
-        │                                              deploy.yml fires
-        │                                              on build success
-        │                                                        │
-        │                                                        ▼
-        │                                              ┌──────────────────┐
-        └─── ssh myvps ──── (admin debug) ────────────►│   Your VPS       │
-                                                      │                  │
-                                                      │  ┌────────────┐  │
-                                                      │  │ infra/     │  │
-                                                      │  │ postgres   │  │  ← shared db,
-                                                      │  │ caddy      │  │     created in
-                                                      │  └─────┬──────┘  │     vps-from-zero
-                                                      │        │         │
-                                                      │  shared network  │
-                                                      │        │         │
-                                                      │  ┌─────┴──────┐  │
-                                                      │  │ app1/      │  │  ← deploy user
-                                                      │  │ app2/      │  │     docker compose
-                                                      │  │ appN/      │  │     pull && up -d
-                                                      │  └────────────┘  │
-                                                      └──────────────────┘
+```mermaid
+flowchart LR
+    subgraph laptop["Your laptop (WSL2)"]
+        devc["VS Code<br/>Dev Container<br/>(dev stage of Dockerfile)"]
+    end
+
+    subgraph github["GitHub"]
+        direction TB
+        repo["repo<br/>(your code)"]
+        build["Actions: build.yml<br/>Buildx → runtime stage"]
+        deploy["Actions: deploy.yml<br/>ssh deploy@vps"]
+    end
+
+    ghcr[("GHCR registry<br/>:latest + :sha-abc123")]
+
+    subgraph vps["Your VPS"]
+        direction TB
+        subgraph infrastack["infra/ stack"]
+            pg["Postgres"]
+            caddy["Caddy"]
+        end
+        subgraph appstack["per-app stacks"]
+            app1["app1"]
+            app2["app2"]
+            appN["appN"]
+        end
+        infrastack -.-|"shared<br/>network"|- appstack
+    end
+
+    devc -->|"git push"| repo
+    repo --> build
+    build -->|"docker push"| ghcr
+    build -.->|"workflow_run<br/>on success"| deploy
+    deploy -->|"compose pull<br/>+ up -d"| appstack
+    ghcr -.->|"compose pull"| appstack
+    devc -.->|"ssh myvps<br/>(admin debug)"| vps
 ```
 
 Internalize this diagram. Everything in the rest of the document is about making one of these arrows reliable.
@@ -959,7 +955,9 @@ Two triggers: every push to main, and manual triggering from the Actions tab UI.
 GitHub provides clean Ubuntu VMs for each job. `ubuntu-latest` currently means Ubuntu 24.04. Pinning to `ubuntu-24.04` is more reproducible if you care about avoiding silent breakages when GitHub bumps the latest tag.
 
 **`permissions: contents: read, packages: write`**
-**The gotcha.** By default, the auto-generated `GITHUB_TOKEN` is read-only. `packages: write` is what lets it push to GHCR. Without it, you get a confusing "denied" error on push. `contents: read` is what lets the checkout step read your repo.
+
+> [!IMPORTANT]
+> By default, the auto-generated `GITHUB_TOKEN` is read-only. `packages: write` is what lets it push to GHCR. Without it, you get a confusing "denied" error on push. `contents: read` is what lets the checkout step read your repo.
 
 The token's permissions are scoped to the workflow run. After the workflow finishes, the token is invalidated. So even if a build script somehow exfiltrates the token, it's useless after the run.
 
@@ -1166,7 +1164,8 @@ Differences from the local compose file:
 - `networks: [shared]` — join the shared network created in vps-from-zero.
 - No `ports:` — the bot is outbound-only (Discord bots talk *to* Discord, not the other way). Web apps would expose ports here, then Caddy would reverse-proxy them.
 
-**Critical:** the production `DISCORD_TOKEN` should be from a *separate* Discord application than your dev token. Bots can only be connected to Discord from one place at a time; if dev and prod use the same token, they'll fight.
+> [!IMPORTANT]
+> The production `DISCORD_TOKEN` should be from a *separate* Discord application than your dev token. Bots can only be connected to Discord from one place at a time; if dev and prod use the same token, they'll fight.
 
 ---
 
@@ -1286,11 +1285,12 @@ def downgrade():
     op.drop_table("users")
 ```
 
-**Critical: read it before committing.** Autogenerate is a starting point, not a finished product. It sometimes:
-
-- Misses column type changes (especially for custom types or enums).
-- Generates operations in the wrong order.
-- Produces an unsafe `downgrade()` (one that throws away data).
+> [!IMPORTANT]
+> **Read the generated migration before committing.** Autogenerate is a starting point, not a finished product. It sometimes:
+>
+> - Misses column type changes (especially for custom types or enums).
+> - Generates operations in the wrong order.
+> - Produces an unsafe `downgrade()` (one that throws away data).
 
 ### Testing locally against a fresh DB
 
@@ -1984,30 +1984,42 @@ docker compose pull && docker compose up -d
 
 ### The full deploy flow at a glance
 
-```
-git push origin main
-       │
-       ▼
-GitHub Actions: build.yml
-  ├─ Checkout
-  ├─ Setup Buildx
-  ├─ Login to GHCR
-  ├─ Compute tags (:latest, :sha-<commit>)
-  ├─ docker buildx build --target=runtime --push
-  └─ ✓ image at ghcr.io/<owner>/<repo>:latest and :sha-<commit>
-       │
-       ▼ workflow_run trigger
-GitHub Actions: deploy.yml
-  ├─ ssh deploy@vps
-  ├─ cd ~/<app>
-  ├─ docker compose pull
-  ├─ docker compose run --rm migrate
-  ├─ docker compose up -d <service>
-  ├─ docker image prune -f
-  └─ ✓ new container running on VPS
+```mermaid
+flowchart TD
+    push["git push origin main"]
 
-Total: ~90-120 seconds from push to live.
+    subgraph build["GitHub Actions: build.yml"]
+        direction TB
+        b1["Checkout"]
+        b2["Setup Buildx"]
+        b3["Login to GHCR"]
+        b4["Compute tags<br/>:latest + :sha-..."]
+        b5["docker buildx build<br/>--target=runtime --push"]
+        b1 --> b2 --> b3 --> b4 --> b5
+    end
+
+    image[("image in GHCR<br/>:latest + :sha-...")]
+
+    subgraph deploy["GitHub Actions: deploy.yml"]
+        direction TB
+        d1["ssh deploy@vps"]
+        d2["cd ~/(app)"]
+        d3["docker compose pull"]
+        d4["docker compose run --rm migrate"]
+        d5["docker compose up -d (service)"]
+        d6["docker image prune -f"]
+        d1 --> d2 --> d3 --> d4 --> d5 --> d6
+    end
+
+    running["new container running on VPS"]
+
+    push --> build
+    build --> image
+    image -.->|"workflow_run trigger"| deploy
+    deploy --> running
 ```
+
+**Total: ~90–120 seconds from push to live.**
 
 ### What lives where
 

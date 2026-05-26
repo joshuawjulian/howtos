@@ -2,6 +2,9 @@
 
 > Take a brand-new Ubuntu VPS from "the provider just emailed you root credentials" to "locked down, patched, with Docker Engine and a shared Postgres ready to host containerized apps." Companion document to [dockerized-deployments](../dockerized-deployments/README.md) — this one handles the foundation; that one handles the apps.
 
+> [!NOTE]
+> **Last validated: 2026-05.** Tool versions reflect current stable: Ubuntu 24.04 LTS, Docker Engine current, Postgres 16, latest UFW. Bump and re-validate annually per CLAUDE.md standard #5.
+
 ## What you'll have at the end
 
 - A locked-down Ubuntu 24.04 VPS with key-only SSH, root login disabled, and an active firewall.
@@ -250,7 +253,8 @@ Then:
 sudo systemctl restart ssh
 ```
 
-**Critical safety step.** Before closing your current session, open a **new** WSL terminal and confirm `ssh julian@<vps-ip>` still works. If it does, you're safe to disconnect everything. If it doesn't, you still have the original session to fix it. **Misconfigured sshd is the #1 way personal VPSes get locked out forever** — the box is fine but nobody can get in.
+> [!WARNING]
+> **Don't close your current session yet.** Open a *new* WSL terminal and confirm `ssh julian@<vps-ip>` still works. If it does, you're safe to disconnect everything. If it doesn't, you still have the original session to fix it. Misconfigured `sshd` is the #1 way personal VPSes get locked out forever — the box is fine but nobody can get in.
 
 **What each setting does:**
 
@@ -305,7 +309,8 @@ docker run hello-world          # should succeed without sudo
 
 **Why add yourself to the docker group?** So you don't have to `sudo docker` every time.
 
-**Security caveat about the docker group.** Anyone in the docker group can mount the host filesystem into a privileged container and effectively become root. This is a known property of Docker, not a bug. The mitigation: only put accounts you trust in the docker group (you and the deploy user). For higher-paranoia setups, use rootless Docker — but that's a separate guide.
+> [!CAUTION]
+> **Anyone in the docker group can effectively become root** — they can mount the host filesystem into a privileged container. This is a known property of Docker, not a bug. Mitigation: only put accounts you trust in the docker group (you and the deploy user). For higher-paranoia setups, use rootless Docker — but that's a separate guide.
 
 ---
 
