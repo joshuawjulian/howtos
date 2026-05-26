@@ -6,7 +6,10 @@ Personal reference tutorials. Each tutorial lives in its own subdirectory so it 
 
 | Tutorial | What it covers |
 |---|---|
-| [vps-deployment-pipeline](./vps-deployment-pipeline/README.md) | Full end-to-end: fresh Ubuntu VPS → SSH keys → Docker → GHCR → GitHub Actions CI/CD → multiple apps → shared Postgres → local development with VS Code Dev Containers |
+| [vps-from-zero](./vps-from-zero/README.md) | Provision a fresh Ubuntu VPS: SSH keys, locked-down SSH, firewall, auto-patches, Docker Engine, deploy user, shared network, shared Postgres, backups. |
+| [dockerized-deployments](./dockerized-deployments/README.md) | The application side: multi-stage Dockerfile, VS Code Dev Containers, GitHub Actions → GHCR build pipeline, SSH-based CD to the VPS, database migrations, multi-app stacks, Caddy reverse proxy. End-to-end automation from dev container to production. |
+
+The two are meant to be read in order — `vps-from-zero` provisions the box; `dockerized-deployments` ships apps to it.
 
 ## Conventions for new tutorials
 
