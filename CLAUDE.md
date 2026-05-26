@@ -16,6 +16,25 @@ A personal collection of "how to do X" tutorials I (Joshua Julian) have written 
 
 The repo is not a "list of commands to copy-paste." It's a **decision record + tutorial hybrid** — the kind of doc where you can read the surrounding prose and understand why each command is what it is, what could have been done instead, and what would go wrong if you skip a step.
 
+## About the author (calibration for tone and depth)
+
+Joshua Julian. Brief profile because it changes how docs in this repo should be written:
+
+- **Computer science undergrad.** Foundational CS concepts — type systems, complexity, data structures, the Unix mental model, distributed-systems vocabulary — don't need to be re-explained. Use the right names for things; don't analogize.
+- **Hobbyist coder for life.** I've been writing code since before undergrad. I'm not new to programming. I'm new to *specific tools*. Explain `uv` (it's recent, niche-but-spreading); don't explain what a package manager is.
+- **Active-duty Army aviator. 19 years flying.** Two consequences for how docs read:
+  1. I think in checklists and procedures. Aviation does that to you. Expect step-by-step structures, "before you commit, verify…" sections, and a strong preference for "do these things in this order" over "explore freely." The how-tos should match that brain.
+  2. I'm not a full-time engineer. I code daily but I'm not on Hacker News at lunch tracking the latest framework drama. Treat me as a smart engineer who isn't current on JS framework churn or the npm crisis-of-the-week. Foundational stays implicit; novel tools get a paragraph of context.
+- **MSDS in progress** (Master's in Data Science, UT Austin). Stats, ML, scientific computing, and Python data tooling are fair game — don't water them down. Future how-tos in this repo will likely include data-science topics (Polars vs pandas, GPU setup, Jupyter workflows, MLOps).
+- **Time is the scarcest resource.** Full-time job + family + master's program + side-project coding adds up to *very* little deep-work time. The whole reason for writing these how-tos is so future-me doesn't have to re-figure out what present-me just figured out. Front-load explanation. Minimize "you'll figure it out" moments. Every "see the docs" link without a summary is a future me spending 20 minutes re-finding the answer.
+
+### What this means for writing style
+
+- **No condescension.** Don't say "as you may know" or "in software engineering, we…" — just say the thing.
+- **Don't over-analogize.** "It's like a kitchen pantry but for code" is for somebody else's docs.
+- **Use the precise technical term.** Don't say "the thing that does X" when there's a name for the thing.
+- **Aviation analogies are welcome** when they actually clarify (checklists, go/no-go decisions, mission planning, after-action review). Don't force them.
+
 ## Layout
 
 ```
@@ -410,6 +429,29 @@ Avoid MySQL, MariaDB, MongoDB, DynamoDB for new how-tos unless the use case spec
 | Container registry | GHCR. |
 | Reverse proxy | Caddy. |
 | Container orchestration | Docker Compose. K8s is explicitly out unless ≥3 nodes. |
+
+### Editor and local dev environment
+
+| Tool | Default |
+|---|---|
+| Editor | **VS Code**, always. |
+| Local dev environment | **VS Code Dev Containers + Docker** for any non-trivial project. Single-file scripts can live in WSL directly without a container. |
+| Container engine | **Docker Engine** — Docker Desktop's WSL integration if it's set up, or `docker.io` installed directly in the WSL distro. |
+| Terminal | Default WSL Ubuntu bash; `tmux` only when running multi-pane work. |
+| Shell prompt | Default bash; not a styled prompt theme. |
+| Operating system (laptop) | **Windows 11 + WSL2** (Ubuntu 24.04). All development work happens inside WSL, never in Windows directly. |
+
+> [!NOTE]
+> Open to alternatives to Docker (Podman, especially) when a specific case calls for it. Dev Containers themselves are the principle — the implementation can vary. But the default for now is Docker, and a how-to that recommends something else should say *why* in that doc.
+
+Why Dev Containers as the default:
+
+- **Same environment for every project.** No more "wait, which Python version does this repo want?" The container has the answer.
+- **Same environment for every developer / device.** When a friend opens the repo, they get the same toolchain in one command (`Reopen in Container`).
+- **Same environment as production.** The container that runs CI tests is the container you're typing in. Eliminates "works on my machine."
+- **Cleanup is free.** Throw away the container; the host stays clean. No "is this venv still important?"
+
+The cost — one-time container build at ~30-90 seconds, and a bit of mental overhead about inside-vs-outside — is paid back the first time you avoid a "wrong Python version" debug session.
 
 ### Why these defaults
 
