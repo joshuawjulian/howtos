@@ -479,7 +479,7 @@ Defaults rot. Once a year, sweep this section and verify each pick is still the 
 
 ## What's in this repo
 
-Two how-tos as of writing. Each gets its own deep entry below.
+Three how-tos as of writing. Each gets its own deep entry below.
 
 ### 1. `vps-from-zero/`
 
@@ -618,6 +618,78 @@ This is where the example-heavy standard is most heavily applied:
 - How to write good application code, write tests, etc. — language-specific.
 - Multi-VPS / load-balancer / blue-green deploys. Out of scope for the "personal box" target.
 - Observability stack (Prometheus, Grafana, Loki). Mentioned only as future work.
+
+---
+
+### 3. `ssh-keys/`
+
+**Path:** [ssh-keys/README.md](./ssh-keys/README.md)
+
+**What it covers**
+
+The full lifecycle of SSH keys across multiple computers, multiple identities (e.g., two GitHub accounts), and multiple servers. Centered on the `~/.ssh/config` file format because that's the part most "just run ssh-keygen" tutorials gloss over. Includes generation with custom names, naming conventions, the `.ssh` directory across Windows / WSL / Linux / macOS, ssh-agent persistence options, agent forwarding (and when not to), key rotation patterns, and a thorough troubleshooting catalog mapping each "Permission denied" subspecies to its specific cause.
+
+**Who it's for**
+
+Me, every time I add a new device, switch jobs, set up a second GitHub account, or have to talk a teammate through SSH config from scratch. Anyone who:
+
+- Is comfortable on the command line.
+- Has used SSH before but never quite mastered the `config` file.
+- Has hit "Too many authentication failures" or "Permission denied (publickey)" and wants to actually understand why instead of cargo-culting a fix.
+- Runs multi-device, multi-identity workflows and is tired of `-i path/to/key` on the command line.
+
+**Historical context — why this how-to exists**
+
+For years I used SSH the way everyone does: one key, default name, copy/paste commands when something didn't work. Two events made this how-to necessary.
+
+First, getting multiple GitHub identities (personal + work). Most tutorials handle it by telling people to set `git config user.email` per repo — which addresses commit attribution but does nothing for the actual *auth* problem. The real fix is SSH host aliases (`Host github-work`) + per-host `IdentityFile` + `IdentitiesOnly yes`. I had to piece this together from Stack Overflow across multiple sessions and never quite trusted the result until I'd built the model from first principles.
+
+Second, every time I got a new computer I'd forget some piece of the workflow ("do I copy the private key over? Or generate a new one? How do I authorize it without compromising it?") and waste an hour re-deriving the answer. This doc is the answer captured permanently. Generate per-device; share only public; never move private. Per-device keys are also how revocation stays surgical — losing one laptop doesn't force you to rotate keys on every other device.
+
+The doc ended up centering `~/.ssh/config` because that's where most peoples' real frustration lives, and almost no tutorial explains the format properly. Once you understand the format and the pattern-match semantics, multi-account / multi-host setups become trivial.
+
+**Opinionated stance**
+
+This document believes:
+
+- **Use Ed25519.** Don't use RSA in 2026 unless an old enterprise SSH server forces you. Don't use DSA ever.
+- **Set passphrases on personal keys.** No-passphrase is for CI/automation only. The convenience isn't worth the laptop-theft risk for human-facing keys.
+- **Use ssh-agent** (`keychain` on Linux/WSL, the Windows OpenSSH service on Windows, the built-in agent on macOS, or 1Password SSH Agent everywhere) so you only type the passphrase once per session.
+- **One private key per device.** Never copy a private key between machines. Public keys travel; private keys don't.
+- **`~/.ssh/config` is mandatory** as soon as you have more than one identity or more than two hosts. Stop typing `-i` flags.
+- **`IdentitiesOnly yes`** on every `Host` block where you specify an `IdentityFile`. Without it, multi-key setups break in confusing ways ("Too many authentication failures").
+- **Custom-named keys** are good — `id_ed25519_work`, `id_ed25519_personal`, `vps-deploy`. The `id_<algo>_<purpose>` pattern wins for personal identities; bare descriptive names (`vps-deploy`) for service/CI keys.
+- **The `.ssh` folder is named `.ssh`** — with the dot — on every platform including Windows. File Explorer hiding it by default is a UI quirk, not a real difference.
+
+**Alternatives considered (with reconsider conditions)**
+
+- **1Password SSH Agent.** Genuinely better UX than the keychain-based approach: biometric per-use auth, multi-device sync, no plaintext key file on disk. *Reconsider when:* you already pay for 1Password (it's the better setup the moment that's true).
+- **Hardware token (Yubikey, FIDO2/U2F).** Highest security tier — the private key never exists in software. *Reconsider when:* you have high-stakes accounts (production root, money, regulated work). Overkill for personal hobby projects.
+- **SSH certificates from a CA.** Short-lived, auto-revoked at expiry, central management. *Reconsider when:* you're managing access for an organization. Skip for personal use.
+- **Tailscale SSH.** Replaces SSH key management with Tailscale identity (Google/GitHub OAuth + per-device approval). *Reconsider when:* you've already adopted Tailscale for the rest of your network. Otherwise the overhead isn't worth replacing SSH.
+- **RSA 4096 instead of Ed25519.** *Reconsider when:* an old/embedded server forces you. Rare.
+- **CLI flags (`-i`, `-p`, etc.) instead of config blocks.** Fine for one-offs. *Don't* "reconsider" for permanent setups — config blocks scale; CLI flags don't.
+
+**Concrete examples in the doc**
+
+- Step-by-step `ssh-keygen` with `-t`, `-f`, `-C`, `-N`, with every flag annotated.
+- A real `~/.ssh/config` for a one-key setup, a two-GitHub setup, and a jump-host scenario — copy/paste-ready.
+- Verifying what config applies to a host before connecting: `ssh -G <host>`.
+- `ssh-copy-id` workflow for authorizing a key on a server.
+- The "add new key, verify everything works, remove old key" rotation pattern.
+- Troubleshooting table: each "Permission denied" subspecies mapped to its cause (file perms, agent state, sshd config, identity selection).
+- A Mermaid diagram of the public/private split (where the private stays, where the public travels).
+- A multi-device Mermaid diagram showing three devices, each with their own keypair, all authorized on the same GitHub + VPS.
+- The `IdentitiesOnly yes` mechanics — what goes wrong without it and how to fix the resulting "Too many authentication failures."
+- Cross-platform path matrix: which SSH client reads from where on Windows / WSL / Linux / macOS.
+
+**What's NOT in this doc**
+
+- How to set up the SSH *server* side beyond `authorized_keys` mechanics. For `sshd_config` hardening (PermitRootLogin, PasswordAuthentication, UFW), see [vps-from-zero](./vps-from-zero/README.md).
+- GPG / commit signing. Different keys, different system.
+- SSH port forwarding / tunneling. Separate topic.
+- Setting up a certificate authority. Mentioned as an alternative; not the focus.
+- Windows native SSH server. Linux-server-centric.
 
 ---
 
