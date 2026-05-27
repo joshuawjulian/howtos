@@ -44,6 +44,10 @@ For someone bootstrapping the whole stack from scratch:
 8. `dockerized-deployments` — ship a Python app end-to-end
 9. `sveltekit-bun-deployment` — ship a TypeScript app end-to-end
 
+## Printer-friendly PDFs
+
+A printable PDF of every how-to lives in [`pdfs/`](./pdfs). Built from the markdown source via `uv run --with markdown --with weasyprint --with pygments python scripts/build-pdfs.py`. Optimized for printing on paper (B&W toner-friendly, serif body, sensible page breaks); Mermaid diagrams are replaced with a pointer to the online version.
+
 ## Conventions for new tutorials
 
 - One folder per tutorial: `howtos/<kebab-case-topic>/`

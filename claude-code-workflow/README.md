@@ -59,15 +59,7 @@ When you type a message, Claude can call any of these as part of formulating its
 flowchart LR
     user["You<br/>(typing in terminal)"]
     claude["Claude<br/>(the model)"]
-
-    subgraph tools["Tools Claude can call"]
-        direction TB
-        fs["Filesystem<br/>(Read, Write, Edit)"]
-        bash["Shell<br/>(Bash)"]
-        skill["Skills<br/>(/review, /init, …)"]
-        sub["Sub-agents<br/>(Plan, Explore, …)"]
-        mcp["MCP servers<br/>(Gmail, Drive, …)"]
-    end
+    tools["Tools<br/>Filesystem · Shell · Skills<br/>Sub-agents · MCP servers"]
 
     user -->|"prompt"| claude
     claude -->|"reasons + acts"| tools
