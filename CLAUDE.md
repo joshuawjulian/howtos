@@ -479,7 +479,7 @@ Defaults rot. Once a year, sweep this section and verify each pick is still the 
 
 ## What's in this repo
 
-Three how-tos as of writing. Each gets its own deep entry below.
+Nine how-tos as of writing. Each gets its own deep entry below.
 
 ### 1. `vps-from-zero/`
 
@@ -690,6 +690,318 @@ This document believes:
 - SSH port forwarding / tunneling. Separate topic.
 - Setting up a certificate authority. Mentioned as an alternative; not the focus.
 - Windows native SSH server. Linux-server-centric.
+
+---
+
+### 4. `git-for-solo-devs/`
+
+**Path:** [git-for-solo-devs/README.md](./git-for-solo-devs/README.md)
+
+**What it covers**
+
+The Git workflow for working alone, not the team-collaboration version. Tiny feature branches, aggressive history-rewriting before push, `--force-with-lease` everywhere, `git reflog` as the universal safety net. Plus commit hygiene, the `rebase -i` / `commit --amend` / `reset` / `revert` toolkit, stashing, multi-machine workflows, recovery from common "oh no" scenarios, ssh-based commit signing, and a curated `~/.gitconfig`.
+
+**Who it's for**
+
+Me, every time I need to remember how to safely rewrite history, or how to recover from a force-push to the wrong branch. Anyone who knows the basics of Git but never quite owned the parts that "just work for teams" — like why `rebase -i` is great solo but dangerous in a team.
+
+**Historical context**
+
+Almost every Git tutorial on the internet is written for teams. They optimize for "never rewrite shared history" and "merge commits preserve audit trails." When you're solo, those constraints flip — rewriting your own history is fine, and merge commits are noise that future-you has to navigate at 11pm. The "team Git" rules slowly accumulated cargo-culted habits in my workflow that made things harder than they needed to be. This doc captures the solo-specific patterns: short branches, squash-merge, no GitFlow, `pull --rebase` by default, `IdentitiesOnly`-style discipline (here, `--force-with-lease`-style discipline) applied consistently.
+
+**Opinionated stance**
+
+- `main` is sacred; everything else is yours to rewrite. The whole philosophy in one line.
+- Solo branches live hours to a day. Longer = anti-pattern.
+- Squash-merge feature branches. The individual commits are scaffolding; only the feature matters on `main`.
+- `pull.rebase = true` globally. Merge commits from pull are noise.
+- `rerere.enabled = true`. Free conflict-resolution memoization.
+- `--force-with-lease --force-if-includes`, never plain `--force`.
+- `git switch` and `git restore` instead of `git checkout`. The old command was overloaded into confusion.
+- Sign commits with SSH (not GPG). Simpler, fewer moving parts.
+
+**Alternatives considered (with reconsider conditions)**
+
+- **GitFlow.** Reconsider on a team with formal releases. Skip for solo.
+- **Trunk-based development.** This is essentially what we're doing, sans formal name.
+- **Magit, lazygit, tig.** Power tools. Reconsider when CLI ergonomics aren't enough.
+- **JJ (Jujutsu).** Most credible "post-Git" contender. Watch — still pre-1.0 as of 2026.
+- **GPG signing.** Reconsider when org requires it. Skip for personal.
+
+**Concrete examples in the doc**
+
+- A complete daily workflow from `git switch main` through `gh pr merge --auto --squash`.
+- The interactive rebase syntax (`pick`/`squash`/`fixup`/`drop`) with a before/after example.
+- Recovery procedures for: committed to wrong branch, force-pushed bad code, deleted a branch, botched a rebase, committed a secret.
+- A curated `~/.gitconfig` with every non-obvious setting annotated.
+- A real `~/.ssh/allowed_signers` file for SSH commit verification.
+
+**What's NOT in this doc**
+
+- Multi-developer team workflows.
+- Git internals (object model, packfiles, refs in depth).
+- CI/CD-flavored git tricks (covered in dockerized-deployments).
+- GitHub-specific features beyond the `gh` CLI.
+
+---
+
+### 5. `domain-caddy-https/`
+
+**Path:** [domain-caddy-https/README.md](./domain-caddy-https/README.md)
+
+**What it covers**
+
+End-to-end domain ownership and HTTPS setup: buying a domain (Cloudflare Registrar > Porkbun > avoid GoDaddy), DNS records, pointing DNS at the VPS, Caddyfile deep dive, Let's Encrypt under the hood (ACME, TLS-ALPN-01 / HTTP-01 / DNS-01 challenges, rate limits), the Cloudflare proxy decision (orange cloud vs gray cloud) with two-tier TLS strategy, wildcard certs via DNS-01 with Caddy + Cloudflare API, subdomain strategy, Cloudflare Email Routing for forwarding-only inbound mail, and layer-by-layer troubleshooting.
+
+**Who it's for**
+
+Me, the first time I take a project from "Discord bot, no inbound HTTP" to "needs a real domain and HTTPS." Anyone who knows what a DNS A record is but isn't fluent in the operational details of cert acquisition, Cloudflare proxy modes, or why their TLS handshake is failing.
+
+**Historical context**
+
+The HTTPS landscape changed dramatically between 2015 and 2020 — Let's Encrypt made certs free, ACME made them automatic, Caddy made cert management invisible. Pre-2015, getting HTTPS meant buying a cert from Comodo for $50/year and manually rotating it; post-2020, it's "add a site block to a Caddyfile." But the cliffs are subtle: rate limits, Cloudflare proxy interaction with TLS challenges, when to use DNS-01 vs HTTP-01. This doc captures the parts that still bite people in 2026.
+
+**Opinionated stance**
+
+- Use Cloudflare Registrar for new domains. Anyone charging more than wholesale is gouging.
+- DNS on Cloudflare regardless of where you registered. Best API, fastest, free.
+- Caddy v2 for HTTPS termination at the origin. Auto-cert is the entire reason it exists.
+- Cloudflare proxy for public web/API; DNS-only for internal services.
+- Wildcard cert only when you have 5+ subdomains.
+- IPv6 (`AAAA` records) by default.
+- Cloudflare Email Routing for receive-only inbound mail. Never self-host SMTP in 2026.
+
+**Alternatives considered (with reconsider conditions)**
+
+- **nginx + Certbot.** Reconsider for existing nginx investment.
+- **Traefik.** Reconsider for Docker-label-driven config.
+- **Buying a cert.** Don't. Free is better and simpler.
+- **AWS Route 53 for DNS.** Reconsider when already in AWS.
+- **Fastmail / Migadu** for full email. Reconsider when you need to send from your domain.
+
+**Concrete examples in the doc**
+
+- A sequenceDiagram of an HTTPS request from DNS through Caddy to a container.
+- Caddyfile examples: simple site, snippets, path-based routing, wildcard with DNS-01.
+- The Cloudflare API token setup for DNS challenges, with the exact permissions needed.
+- A "two-tier TLS" diagram for proxied origin.
+- An operational checklist (DNS resolves, port 80, port 443, valid cert, HSTS present, app responds).
+- Layer-by-layer troubleshooting matching each error symptom to the layer to investigate.
+
+**What's NOT in this doc**
+
+- Detailed Caddy plugin development.
+- Custom certificate authority setup.
+- Email *sending* infrastructure (SPF/DKIM/DMARC tuning is real work).
+- Domain transfers and inter-registrar mechanics.
+
+---
+
+### 6. `backups-and-restore/`
+
+**Path:** [backups-and-restore/README.md](./backups-and-restore/README.md)
+
+**What it covers**
+
+A boring, tested, offsite backup strategy for a personal VPS, with a documented restore drill. `pg_dumpall` + gzip + cron for local snapshots; rclone to Backblaze B2 for offsite; `age` for encryption at rest with the private key stored *outside* the VPS; weekly tarball backups of Caddyfile + per-app `.env` files; a step-by-step disaster-recovery runbook that goes from "VPS is gone" to "everything works" in under an hour; a monthly restore drill that catches "the backup didn't actually work" before you need it.
+
+**Who it's for**
+
+Me, the day before I learn (the hard way) that the backup script that ran every night for two years produced empty files. Anyone running a personal VPS without yet having a real "data is gone" story.
+
+**Historical context**
+
+The single most common backup failure mode is "backups ran reliably; nobody ever tested a restore; when restore was needed, the backups were corrupt." Half the doc exists to prevent that — by automating the drill, encoding empty-file detection in the script, and documenting the restore *as the operation that matters*. Backup is the warm-up; restore is the act.
+
+**Opinionated stance**
+
+- A backup you've never restored from is a wish, not a backup.
+- Offsite or it doesn't count. Local-only backups die with the machine.
+- Encrypt at rest. With a key stored outside the backup destination.
+- Don't back up what's already replicated (source code in GitHub, container images in GHCR).
+- Manual snapshots before risky operations. Always.
+- Backblaze B2 is the cheapest credible offsite option.
+- `age` over GPG. Smaller surface area, no key-server complexity.
+
+**Alternatives considered (with reconsider conditions)**
+
+- **AWS S3 / Cloudflare R2** for storage. Reconsider when you're already in AWS or doing lots of restores (R2 has zero egress).
+- **PITR via WAL streaming** for finer-grained recovery. Reconsider when 24h RPO is too coarse.
+- **Restic / BorgBackup** for deduplicating file-level backups. Reconsider when total file size is large and similar files repeat.
+- **rclone crypt remote** instead of age. Easier; tied to rclone scheme; less portable.
+
+**Concrete examples in the doc**
+
+- A complete `backup-db.sh` with `pg_dumpall` + gzip + age + rclone, with an empty-file guard.
+- A weekly `backup-configs.sh` for Caddyfile + per-app `.env` files.
+- The cron entries that drive both.
+- A full disaster-recovery runbook with timed steps.
+- A `restore-drill.sh` script that pulls latest, decrypts, restores to a throwaway Postgres, runs sanity checks.
+- Specific recovery procedures: "I dropped a table" / "the VPS is gone" / "I need yesterday's data only."
+
+**What's NOT in this doc**
+
+- Filesystem-level snapshots (ZFS, btrfs).
+- Logical replication / streaming replication.
+- Backup of monitoring data / log archival.
+- Bare-metal / VM image backups.
+
+---
+
+### 7. `tailscale-for-personal-use/`
+
+**Path:** [tailscale-for-personal-use/README.md](./tailscale-for-personal-use/README.md)
+
+**What it covers**
+
+Private mesh networking with Tailscale. Installation on all your devices (laptop, VPS, phone, work computer), MagicDNS for "ssh apex" working anywhere, Tailscale SSH and closing public port 22 entirely, internal services bound to the tailnet via Caddy + `bind` directive, exit nodes (using your VPS as a VPN), subnet routes for bridging existing networks, ACLs and tags for finer access control, Funnel for selectively exposing one service publicly without DNS work, and the procedure for removing a lost or compromised device.
+
+**Who it's for**
+
+Me, the moment I want to self-host things that should not be on the public internet (admin dashboards, password vault, RSS reader, etc.). Anyone uncomfortable with port 22 being publicly reachable.
+
+**Historical context**
+
+Pre-Tailscale, "private network between my devices" meant running your own VPN server (OpenVPN or WireGuard), dealing with key exchange, NAT traversal, dynamic DNS, and ongoing maintenance. Tailscale collapsed all of that into "sign in with Google; everything works." It's the rare modern tool that does a hard thing easily without compromising security. The headline outcome of this how-to — "port 22 is no longer reachable from the public internet" — is a security upgrade I couldn't justify the operational cost of pre-Tailscale.
+
+**Opinionated stance**
+
+- Use Tailscale for any personal mesh networking. Pay the trust dependency on Tailscale Inc.; it's worth it.
+- Close public port 22 once Tailscale SSH is verified.
+- Bind internal services to the tailnet IP in Caddy. Don't proxy them publicly even with auth.
+- MagicDNS on. Always.
+- Funnel for temporary public exposure, not permanent.
+- Free tier (100 devices, 3 users) covers personal use forever.
+
+**Alternatives considered (with reconsider conditions)**
+
+- **Headscale** (self-hosted control plane). Reconsider when you want zero Tailscale Inc. trust dependency.
+- **Plain WireGuard.** Reconsider when you'd rather operate your own infrastructure for principle.
+- **NetBird** (open alternative). Smaller community; watch.
+- **ZeroTier.** Older mesh VPN. Less polished.
+- **Cloudflare Tunnel** for public-facing services. Reconsider for services that must be public.
+
+**Concrete examples in the doc**
+
+- Step-by-step Tailscale install on Linux, macOS, Windows, mobile.
+- The exact UFW commands to close public port 22 after verifying Tailscale SSH works.
+- A Caddyfile snippet that binds to the tailnet IP and serves only on the tailnet.
+- Tailscale Serve and Funnel commands for ad-hoc exposure.
+- ACL configuration with tags.
+- A list of internal services worth self-hosting on the tailnet (Vaultwarden, Linkwarden, Memos, etc.).
+
+**What's NOT in this doc**
+
+- Detailed WireGuard internals.
+- Tailscale enterprise features (SCIM, audit, etc.).
+- Headscale setup (out of scope; just mentioned as alternative).
+- Configuring Tailscale on routers / dedicated network appliances.
+
+---
+
+### 8. `sveltekit-bun-deployment/`
+
+**Path:** [sveltekit-bun-deployment/README.md](./sveltekit-bun-deployment/README.md)
+
+**What it covers**
+
+The SvelteKit + Bun stack deployed through the same Dockerized pipeline as the Python apps in [dockerized-deployments](./dockerized-deployments/README.md). Project scaffolding with `bun create svelte`, the `@sveltejs/adapter-node` setup, a multi-stage Dockerfile with dev/build/runtime stages on Bun, local docker-compose with Postgres + Vite HMR-friendly volume tricks, a VS Code Dev Container for Bun/Svelte development, database access via `postgres.js` + Drizzle ORM, auth with Better Auth (vs Lucia), SvelteKit's quadrant of env var types (static/dynamic × private/public), CI/CD pipeline mirroring the Python doc, Caddy site block specifics, troubleshooting (HMR on WSL, image size, env var pitfalls).
+
+**Who it's for**
+
+Me, the first time I want to build a SvelteKit web app — not just a Python service — and deploy it through the same VPS pipeline. Anyone who agrees with the CLAUDE.md tech stack defaults (TypeScript, Bun, SvelteKit, Postgres) and wants the end-to-end recipe.
+
+**Historical context**
+
+The dockerized-deployments doc is implicitly Python-centric — the Dockerfile, the dev container, every example uses `uv` and `python -m`. That makes sense because most of my early projects (Discord bot, scripts) were Python. But the moment I want a real web frontend, none of that translates. SvelteKit needs a different Dockerfile structure (build artifact pattern), different env var handling (build vs runtime), different dev server tooling (Vite). This doc fills the gap so the Python and TS stacks both plug into the same VPS pipeline cleanly.
+
+**Opinionated stance**
+
+- SvelteKit + Bun for new web apps. `adapter-node` for self-hosting.
+- Bun, not Node, in the container. Faster, smaller, native TS.
+- `postgres.js` (postgres) + Drizzle for DB. Type-safe, no codegen step.
+- Better Auth for sessions + OAuth. Less code than Lucia.
+- Pin Bun version in `package.json["packageManager"]` and Dockerfile. Bun is moving fast.
+- Use Alpine-based images (`oven/bun:1.1-alpine`).
+- Compress at the Caddy layer; turn off SvelteKit's `precompress` in adapter config.
+- Dynamic env vars by default; static only when you've profiled the win.
+
+**Alternatives considered (with reconsider conditions)**
+
+- **Node + adapter-node.** Reconsider when a specific dep doesn't work on Bun.
+- **Next.js / Remix.** Reconsider when you're contributing to an existing React ecosystem.
+- **Prisma vs Drizzle.** Prisma if you want introspection + visual studio; Drizzle for lighter footprint.
+- **Lucia vs Better Auth.** Lucia for full control; Better Auth for less code.
+- **Vercel / Cloudflare Pages hosting.** Reconsider when you don't already have a VPS or want CDN-edge by default.
+
+**Concrete examples in the doc**
+
+- The full `bun create svelte` flow with adapter-node added.
+- A multi-stage Bun Dockerfile annotated line-by-line.
+- A `docker-compose.yml` with named-volume tricks that prevent host `node_modules` from clobbering the container's.
+- A Drizzle schema example with `users` and `scores` tables and inferred TypeScript types.
+- A Better Auth setup with email/password and GitHub OAuth.
+- The env-var quadrant table (static/dynamic × private/public) with usage examples.
+
+**What's NOT in this doc**
+
+- Authentication beyond Better Auth basics (MFA, magic links, advanced).
+- Multi-tenant SaaS patterns.
+- Internationalization (i18n).
+- Detailed Tailwind / shadcn / UI library setup.
+- SvelteKit internals (load functions, hooks, etc.) — assumed knowledge.
+
+---
+
+### 9. `claude-code-workflow/`
+
+**Path:** [claude-code-workflow/README.md](./claude-code-workflow/README.md)
+
+**What it covers**
+
+Practical patterns for using Claude Code as a solo dev. The mental model (CLI agent with filesystem + shell + tool access), the three-tier memory system (global CLAUDE.md, project CLAUDE.md, auto-memory), plan mode and when to slow down, sub-agents and when to fan out, built-in and custom slash commands, hooks for automated behaviors, permission management (and `fewer-permission-prompts`), prompting patterns that actually produce useful output, dev container integration, MCP servers, token-budget discipline (`/clear`, `/compact`, sub-agents to keep context lean), and common workflows (feature, bug investigation, review, refactor).
+
+**Who it's for**
+
+Me, six months from now, when I've forgotten the workflow patterns I evolved this year. Anyone using Claude Code who wants to move past "type a prompt, get code" toward "configure the agent to fit my work the way a power-user configures vim."
+
+**Historical context**
+
+Most "AI coding" discussion in 2025-2026 focused on capability: "can the AI do task X?" That question is largely settled — yes, capabilities for solo coding are sufficient. The interesting question now is *workflow*: how do you integrate an agent into your daily process such that you spend less time, not more, on a given outcome? That's the workflow problem this doc captures. It's not about how powerful Claude Code is; it's about how to use it without it becoming another tab you context-switch to.
+
+**Opinionated stance**
+
+- Memory is the highest-leverage feature. Get global and project CLAUDE.md tuned; everything else compounds from there.
+- Plan mode for anything multi-step. The plan is the deliverable for non-trivial work.
+- Sub-agents for big read-only research. Keeps the main context lean.
+- Custom slash commands for recurring workflows. The first ones to write: `/deploy-check`, `/changelog`, `/pr-description`.
+- Hooks for "should always happen" automation. Memory can't execute; hooks can.
+- `fewer-permission-prompts` once you've used the tool for a few weeks. Cuts friction dramatically.
+- Be specific in prompts. Names, files, expected behavior. Don't abdicate synthesis to the agent.
+- `/clear` aggressively between unrelated tasks. Context bloat = slower, worse responses.
+
+**Alternatives considered (with reconsider conditions)**
+
+- **Cursor.** Editor-first instead of CLI-first. Reconsider when IDE integration matters more than agent workflow.
+- **Aider.** Open-source CLI agent. Reconsider for transparency / multi-LLM flexibility.
+- **GitHub Copilot Chat.** Better for line-level completion; worse for multi-step changes.
+- **Plain claude.ai / chatgpt web.** Fine for one-off questions; loses agent advantages.
+
+**Concrete examples in the doc**
+
+- A `mermaid` of Claude's tool-call agent loop.
+- Memory hierarchy table: what content goes in global vs project vs auto-memory.
+- A custom slash command template (`~/.claude/commands/deploy-check.md`) you can copy/paste and adapt.
+- Hook configuration in `settings.json` for auto-format-on-edit and finish notification.
+- Sub-agent prompting examples that show the "brief the colleague who walked in mid-meeting" pattern.
+- Prompt anti-patterns ("based on your findings, implement X") with the corrected version.
+
+**What's NOT in this doc**
+
+- Anthropic API / Claude Agent SDK development (separate concern).
+- Specific MCP server authoring.
+- Comparisons of model versions (Opus vs Sonnet vs Haiku) for specific tasks.
+- Anything about other AI tools beyond a brief alternatives table.
 
 ---
 
