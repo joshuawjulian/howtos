@@ -10,7 +10,7 @@ See [CLAUDE.md](./CLAUDE.md) for writing standards and deep per-tutorial context
 
 | Tutorial | What it covers |
 |---|---|
-| [ssh-keys](./ssh-keys/README.md) | SSH key generation, naming conventions, `~/.ssh/config` format, ssh-agent persistence, multi-device + multi-account workflows. The deep treatment of keys that the other how-tos reference. |
+| [ssh-keys](./ssh-keys/README.md) | SSH key generation, naming conventions, `~/.ssh/config` format, ssh-agent persistence, multi-device + multi-account workflows. The deep treatment that the other how-tos reference. |
 | [git-for-solo-devs](./git-for-solo-devs/README.md) | Git workflow for working alone (short branches, aggressive history-rewriting, `--force-with-lease`, `reflog` as safety net). Recovery procedures, multi-machine workflows, a curated `~/.gitconfig`. |
 | [claude-code-workflow](./claude-code-workflow/README.md) | Practical patterns for Claude Code as a solo dev. Memory system, plan mode, sub-agents, custom slash commands, hooks, prompting patterns. |
 
@@ -29,6 +29,20 @@ See [CLAUDE.md](./CLAUDE.md) for writing standards and deep per-tutorial context
 |---|---|
 | [dockerized-deployments](./dockerized-deployments/README.md) | End-to-end automation: multi-stage Dockerfile, VS Code Dev Containers, GitHub Actions → GHCR build pipeline, SSH-based CD to the VPS, database migrations, multi-app stacks, Caddy reverse proxy. |
 | [sveltekit-bun-deployment](./sveltekit-bun-deployment/README.md) | The TypeScript-side companion: SvelteKit + Bun + `adapter-node`, Drizzle + postgres.js for DB, Better Auth for sessions, the same Dockerized pipeline tailored for Bun. |
+| [postgres-deep-dive](./postgres-deep-dive/README.md) | The long-form Postgres reference: schema design, indexes (every type), JSON/JSONB, full-text search, `EXPLAIN`, transactions & locks, triggers, performance, extensions (pgvector, etc.), anti-patterns, dense cheat sheet for print. |
+
+### Data / ML stack
+
+| Tutorial | What it covers |
+|---|---|
+| [scientific-python-2026](./scientific-python-2026/README.md) | The modern Python data stack: `uv` as universal tool, Polars > Pandas, Marimo > Jupyter, Altair/Matplotlib/Plotly/Seaborn split, scikit-learn for classical ML, PyTorch for DL, Dev Container template, reproducibility discipline. |
+| [gpu-passthrough-for-wsl](./gpu-passthrough-for-wsl/README.md) | CUDA workloads in WSL2 + Dev Containers: NVIDIA driver setup, skipping the CUDA toolkit, PyTorch/JAX install with CUDA wheels, Docker GPU passthrough, verification, diagnostics. |
+
+### Personal docs
+
+| Tutorial | What it covers |
+|---|---|
+| [resume-as-code](./resume-as-code/README.md) | Resume in markdown → pandoc + LaTeX (AltaCV) → professionally-typeset PDF. Multi-variant support, ATS-safe variant, docx output, Dev Container for reproducibility, git workflow for managing application history. |
 
 ### Suggested reading order
 
@@ -43,6 +57,10 @@ For someone bootstrapping the whole stack from scratch:
 7. `backups-and-restore` — protect what's running
 8. `dockerized-deployments` — ship a Python app end-to-end
 9. `sveltekit-bun-deployment` — ship a TypeScript app end-to-end
+10. `postgres-deep-dive` — once you actually need to use the database well
+11. `scientific-python-2026` — for the data-science track
+12. `gpu-passthrough-for-wsl` — when ML compute matters
+13. `resume-as-code` — orthogonal, but useful
 
 ## Printer-friendly PDFs
 

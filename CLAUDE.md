@@ -479,7 +479,7 @@ Defaults rot. Once a year, sweep this section and verify each pick is still the 
 
 ## What's in this repo
 
-Nine how-tos as of writing. Each gets its own deep entry below.
+Thirteen how-tos as of writing. Each gets its own deep entry below.
 
 ### 1. `vps-from-zero/`
 
@@ -1002,6 +1002,233 @@ Most "AI coding" discussion in 2025-2026 focused on capability: "can the AI do t
 - Specific MCP server authoring.
 - Comparisons of model versions (Opus vs Sonnet vs Haiku) for specific tasks.
 - Anything about other AI tools beyond a brief alternatives table.
+
+---
+
+### 10. `postgres-deep-dive/`
+
+**Path:** [postgres-deep-dive/README.md](./postgres-deep-dive/README.md)
+
+**What it covers**
+
+A working reference for Postgres past basic SQL. Mental model (MVCC, WAL), `psql` mastery, schema design (PK choice, naming, NULL semantics), the full data-type menu, every index type with when-to-use guidance, advanced query patterns (CTEs, recursive CTEs, window functions, LATERAL, DISTINCT ON, UPSERT, FILTER), JSONB deep dive, full-text search with `tsvector` / `tsquery` / `pg_trgm`, constraints beyond NOT NULL (CHECK, EXCLUDE, GENERATED), transactions and isolation, locks (FOR UPDATE SKIP LOCKED as the job-queue pattern), triggers and PL/pgSQL, views and materialized views, `EXPLAIN` interpretation, performance (statistics, autovacuum, pg_stat_statements), extensions worth knowing (pg_trgm, pgcrypto, pgvector, timescaledb, postgis), `postgresql.conf` knobs that matter, pgbouncer connection pooling, replication concepts, anti-patterns, and a dense cheat sheet built for print reference.
+
+**Who it's for**
+
+Me, every time I'm building anything backed by Postgres and need to remember the right index type, query pattern, or escape hatch. Anyone past "I can write SELECT and JOIN" who wants the depth a typical Postgres tutorial leaves out.
+
+**Historical context**
+
+Postgres is the database I trust not to lose data. Every other relational and non-relational store I've used has surprised me at some point — silent truncation, default-but-wrong type coercions, scaling cliffs that arrived with no warning. Postgres has never surprised me in a bad way. This doc captures the depth past "I've used Postgres" into "I own Postgres" — including the parts I keep re-Googling at 11pm. The SCIF / print-reference context tipped the design toward "really deep" — the cheat sheet at the end (§21) is what gets printed and lived with.
+
+**Opinionated stance**
+
+- **`bigint generated always as identity`** for primary keys by default. UUIDs only when distributed inserts or public-facing-non-guessable IDs are required (and use v7, not v4).
+- **`timestamptz` always** — never plain `timestamp`. Store UTC; render in user TZ.
+- **`jsonb` never `json`.** The reasons to use `json` instead are vanishingly rare.
+- **`text` not `varchar`.** No performance difference in Postgres; add a CHECK if you need a length limit.
+- **`numeric` or integer cents for money.** Never `float`/`real`/`double`.
+- **Indexes on foreign keys, always.** Postgres doesn't auto-index FKs; the missing index turns delete cascades and joins into sequential scans.
+- **`SERIALIZABLE` more than you think.** For personal apps with low concurrency, the cost is negligible and the correctness guarantee is enormous.
+- **Generated columns over triggers** when both work.
+- **`SET STATISTICS 1000`** on columns the planner keeps getting wrong.
+- **`pg_stat_statements` always installed.** It pays for itself the first time you debug a slow page.
+- **`pgvector` beats dedicated vector DBs at personal scale.** RAG workloads up to tens of millions of vectors do fine on Postgres + HNSW.
+- **`pgbouncer` in transaction mode** for any web-facing workload with many short-lived connections.
+
+**Alternatives considered (with reconsider conditions)**
+
+- **MySQL/MariaDB.** Reconsider when you're forced by an existing codebase. The decade of "MySQL is sufficient" advice is increasingly false — Postgres has surpassed it on every dimension that matters (JSON, FTS, types, constraints, planner, ecosystem).
+- **SQLite.** Reconsider for embedded / single-user / fully-local workloads. Brilliant tool; wrong tool for any multi-process or networked use.
+- **DuckDB.** Reconsider for analytical workloads with no concurrent writes. Different shape entirely (OLAP vs OLTP); pairs well with Postgres rather than replacing it.
+- **CockroachDB / Yugabyte.** Reconsider only at distributed scale you almost certainly don't have.
+- **MongoDB / DynamoDB / "NoSQL."** Reconsider when you have a *specific* schema-less workload that genuinely doesn't fit relational. Most projects that started with NoSQL ended up reinventing relational features badly.
+
+**Concrete examples in the doc**
+
+- A `~/.psqlrc` worth setting (per-database history, `\x auto`, `\timing on`, null symbol).
+- A table template with `bigint` PK + audit timestamps + status CHECK constraint + FK with explicit ON DELETE.
+- Full setup for built-in full-text search with `tsvector` generated columns, weighted ranking, and a GIN index.
+- The job-queue pattern: `SELECT ... FOR UPDATE SKIP LOCKED LIMIT 1`.
+- The "soft uniqueness" partial unique index pattern.
+- An audit-log trigger using `to_jsonb(NEW)` / `to_jsonb(OLD)` for full row capture.
+- `pgvector` table + HNSW index + nearest-neighbor query.
+- One-liner pg_catalog queries for: tables by size, indexes never used, currently-running queries, slow query stats, dead row percentage, current locks.
+
+**What's NOT in this doc**
+
+- Detailed PL/pgSQL programming (touched, not exhaustive).
+- Distributed/multi-region Postgres.
+- Cluster operations (failover, point-in-time recovery setup — see backups-and-restore for tenant-level backups).
+- ORM-specific guidance (Drizzle, SQLAlchemy, etc. — language-specific).
+- Postgres internals at the storage-engine level.
+
+---
+
+### 11. `scientific-python-2026/`
+
+**Path:** [scientific-python-2026/README.md](./scientific-python-2026/README.md)
+
+**What it covers**
+
+The modern Python data stack as I'd run it today. `uv` as the universal Python tool (replacing pip+venv+poetry+pyenv+conda), Polars as the DataFrame default with Pandas as the boundary-layer fallback, Marimo as the reactive notebook default with Jupyter as the niche-extension fallback, the four-way plotting split (Altair declarative / Matplotlib control / Plotly interactive / Seaborn statistical), scikit-learn for classical ML, PyTorch for deep learning (cross-ref to GPU passthrough), reproducibility discipline (lockfile + seeds + immutable raw data), the notebook-to-module refactoring pattern, a Dev Container template specifically for scientific Python, common workflows, anti-patterns, alternatives considered, and a dense printable cheat sheet (uv commands, Polars idioms, Marimo basics, Altair recipes, scikit-learn template, pandas→polars rosetta, IPython magics).
+
+**Who it's for**
+
+Me, doing MSDS coursework and personal data projects. Anyone who learned the 2015-era pandas/jupyter/matplotlib stack and wants the 2026 update.
+
+**Historical context**
+
+The "scientific python" stack of 2015–2022 (pandas + Jupyter + pip + venv + matplotlib + conda) had real pain points: slow installs, fragile environments, slow DataFrame ops, fragile notebooks. By 2026, every layer has been superseded by something measurably better — uv is 10-100× faster than pip, Polars is 5–30× faster than Pandas on common ops with better memory efficiency, Marimo eliminates the notebook-state nightmare. This doc captures the new defaults and explains what each replaced.
+
+**Opinionated stance**
+
+- **`uv` everywhere.** Never `pip install` outside a venv; never `pip-tools`, never `poetry`, never `conda` for new projects.
+- **Polars as the default DataFrame.** Pandas only when interfacing with libraries that only return Pandas.
+- **Marimo for new notebooks.** Reactive, reproducible, stored as plain `.py`. Jupyter only when a specific extension or kernel feature demands it.
+- **Altair for declarative plots; Matplotlib for fine control.** Plotly for genuinely interactive web embeds; Seaborn for quick statistical defaults.
+- **scikit-learn is still scikit-learn.** Nothing has replaced it for classical ML; don't reinvent.
+- **PyTorch for deep learning.** JAX when you need composable transforms or Google ecosystem.
+- **Lockfile + seed + immutable raw data** as the reproducibility floor for any project longer than a coffee break.
+- **Dev Container as the default environment**, not a host `uv venv`. Keeps the laptop clean and lets the project be opened on any machine without setup ceremony.
+
+**Alternatives considered**
+
+- **conda/mamba** — reconsider only for legacy projects that depend on conda-forge-only packages. `uv` does everything conda did, faster.
+- **poetry** — was the standard pre-uv; superseded.
+- **pixi** — newer cross-language package manager (conda-forge-derived). Watch; not winning yet.
+- **virtualenv + pip + pip-tools** — legacy; one tool replaces three.
+- **Pandas vs Polars** — Pandas when a library only accepts/returns it, or when reading old code.
+- **Jupyter vs Marimo** — Jupyter when you need specific kernel extensions (R-via-IRKernel, specialized widgets) or are working in a Jupyter-required environment (Colab, Kaggle).
+- **TensorFlow vs PyTorch** — TF only when forced.
+- **matplotlib-only** — fine for "I need a plot, fast," but Altair compounds better as your needs grow.
+
+**Concrete examples in the doc**
+
+- A typical project layout (`data/raw/`, `data/processed/`, `notebooks/`, `src/myproject/`, `outputs/`).
+- The `uv init` → `uv add` → `uv sync` → `uv run` flow.
+- A Polars expression-chain example next to the Pandas equivalent.
+- A Marimo notebook showing reactive cells.
+- A scikit-learn `train_test_split` + `Pipeline` + `cross_val_score` template.
+- A Dev Container `devcontainer.json` + `Dockerfile` for the full scientific stack.
+- Pandas → Polars rosetta of common operations.
+
+**What's NOT in this doc**
+
+- Distributed compute (Dask, Spark, Ray).
+- MLOps platforms (MLflow, Weights & Biases).
+- Specific domain libraries (NLP-specific, biology-specific, etc.).
+- Statistics theory or ML algorithm choice (different doc).
+- The MSDS curriculum itself.
+
+---
+
+### 12. `gpu-passthrough-for-wsl/`
+
+**Path:** [gpu-passthrough-for-wsl/README.md](./gpu-passthrough-for-wsl/README.md)
+
+**What it covers**
+
+Getting CUDA-accelerated workloads running inside WSL2 and inside Docker dev containers running in WSL2. The historical "why this works now" (NVIDIA + Microsoft's 2020 paravirt), prerequisites (Windows version, NVIDIA driver), driver install (Studio over Game Ready for ML), WSL-side GPU verification, the opinionated "skip the CUDA toolkit" stance for most ML work, PyTorch + JAX installs via `uv` with the right CUDA wheel index, Docker GPU passthrough (Docker Desktop integration vs manual `nvidia-container-toolkit`), a Dev Container template with `--gpus=all` and `--shm-size=8g`, an end-to-end verification script with expected timings on common GPU classes, multi-GPU notes, comprehensive diagnostics (driver mismatch, OOM, kernel-too-old, post-sleep failures), performance gotcha around `/mnt/c` data-loader bottleneck, alternatives (dual-boot, cloud, Apple MLX, ROCm), printable cheat sheet.
+
+**Who it's for**
+
+Me, doing MSDS work and personal ML projects on a Windows laptop with an NVIDIA GPU. Anyone who has Windows + an NVIDIA GPU and wants real Linux ML without dual-booting.
+
+**Historical context**
+
+Pre-2020, doing CUDA work meant dual-booting Linux or running an EC2 instance — WSL2 had no GPU access. In 2020, NVIDIA and Microsoft shipped GPU paravirtualization for WSL2 (the `dxgkrnl` kernel module + the Windows NVIDIA driver providing the kernel passthrough + libcuda shim in WSL). Since then, CUDA-on-WSL has matured to near-native performance. The friction now is no longer "is this possible" but "what's the cleanest setup that doesn't get in the way" — which is what this doc captures.
+
+**Opinionated stance**
+
+- **Skip the CUDA toolkit unless you're compiling kernels.** PyTorch/JAX/TF wheels bundle their own CUDA libraries. Installing the toolkit is a common newbie mistake that breaks WSL's libcuda shim.
+- **Studio driver, not Game Ready, for ML work.** Studio drivers prioritize stability over latest game optimizations.
+- **Don't use `/mnt/c` for training data.** The 9p mount is the data-loader bottleneck; keep data in WSL's ext4 (`/home/<user>/...`).
+- **Dev Container with `--gpus=all` and `--shm-size=8g`** as the canonical ML environment.
+- **Use Docker Desktop's WSL integration** if available; falls back to manually-installed nvidia-container-toolkit.
+- **`uv add torch --index https://download.pytorch.org/whl/cu121`** (or current CUDA wheel index) for PyTorch with CUDA, not the generic `uv add torch`.
+
+**Alternatives considered**
+
+- **Native Linux dual-boot** — faster (no paravirt overhead, no Windows scheduling), but loses Windows ecosystem (Office, Adobe, certain enterprise tools).
+- **Cloud GPUs** (Modal, RunPod, vast.ai, Lambda Cloud) — when local hardware isn't enough or you want occasional big-GPU access without buying.
+- **Colab / Kaggle** — free or near-free tiers; rate-limited, ephemeral. Fine for coursework.
+- **Apple silicon MLX** — entirely different stack (MPS, no CUDA). When you're on a Mac.
+- **AMD GPUs via ROCm** — possible in WSL2 but rough; NVIDIA is dominant in this guide.
+
+**Concrete examples in the doc**
+
+- Verifying GPU is visible: `nvidia-smi` from inside WSL, expected output.
+- The `uv add` command with the per-CUDA index URL.
+- A Dev Container Dockerfile starting from `nvidia/cuda:12.4.0-devel-ubuntu22.04`, layering uv + Python + PyTorch on top.
+- A 30-line PyTorch training script as end-to-end smoke test, with expected timings on RTX 5070 / 5060 / 4060 mobile.
+- Diagnostic flowchart for "GPU not visible" / "CUDA available but slow" / "OOM during training."
+- An ASCII architecture diagram showing the Windows driver → dxgkrnl → libcuda shim → WSL2 layers.
+
+**What's NOT in this doc**
+
+- ROCm / AMD GPU setup details (mentioned in alternatives).
+- Multi-node distributed training.
+- GPU monitoring infrastructure (nvtop is mentioned but DCGM-style observability is out).
+- CUDA programming itself (this is about *getting CUDA workloads running*, not writing kernels).
+- macOS / Apple silicon details (mentioned as alternative).
+
+---
+
+### 13. `resume-as-code/`
+
+**Path:** [resume-as-code/README.md](./resume-as-code/README.md)
+
+**What it covers**
+
+Keeping your resume in markdown source, rendering to professionally-typeset PDF via pandoc + LaTeX (AltaCV template default). Multi-variant support (one resume.md base + per-job overlay files), ATS considerations and a separate ATS-safe variant, docx output for HR systems that demand it, a Dev Container with pandoc + TeX Live + WeasyPrint baked in, full project layout, a working `build.py` with overlay merging, a Makefile, version + date injection into the PDF footer, git workflow (branch per job application), privacy options (private repo default, public+gitignored PII alternative), anti-patterns, alternatives (Canva, JSON Resume, LaTeX-only, Typst as a watch-this-space contender), and a cheat sheet.
+
+**Who it's for**
+
+Me, the next time I update my resume (which, given the MSDS-in-progress + military transition context, will be regularly over the next few years). Anyone with a real resume that needs to evolve over many years and many applications.
+
+**Historical context**
+
+Word documents drift between versions, can't be diff'd, and copy-paste between variants creates inconsistencies that you only notice during an interview. Canva and similar tools lock you into their format and infantilize the typography. ATS systems destroy fancy layouts. PDF-only tools mean you can't programmatically regenerate. The "as code" approach — plain text source + automated rendering — solves all of this the same way it solved configuration management twenty years ago. The pandoc + LaTeX combination has been viable for over a decade but the friction was high; modern Dev Containers + pre-made templates collapse that friction.
+
+**Opinionated stance**
+
+- **Plain text source, automated rendering.** Always. Never edit a binary resume artifact.
+- **Pandoc + LaTeX (AltaCV) as the default.** Best typographic quality, mature ecosystem, ATS-compatible if you choose the right template variant.
+- **One canonical `resume.md`** + per-job `variants/<job>.md` overlays. The build script merges overlay onto base; you ship a job-specific PDF without forking the source.
+- **Maintain a separate ATS-safe variant.** Single-column, no tables-for-layout, plain Unicode, simple headings. Render this for HR systems; render the pretty variant for direct hand-off.
+- **Private repo by default.** Real contact info, real employer names — don't put this on a public GitHub.
+- **Inject git SHA + build date into the PDF footer.** Every output is traceable to the source commit.
+- **Dev Container for reproducibility.** A laptop change shouldn't require relearning LaTeX install.
+
+**Alternatives considered**
+
+- **WeasyPrint (HTML/CSS-driven instead of LaTeX)** — lighter dependency footprint, no TeX install. Worse typography. Reconsider when LaTeX is overkill for the design you want.
+- **JSON Resume (jsonresume.org schema)** — YAML/JSON source, many themes, easy ATS-friendly export, recruiter-recognized format. Reconsider if you want maximum ATS compatibility and don't care about bespoke typography.
+- **Canva / Resume.io / Zety** — commercial, lock-in, no diff, no source control. Fine for "I need one resume tomorrow," anti for everything else.
+- **LaTeX-only (no markdown)** — works, more verbose source, steeper curve. Reconsider only when pandoc's markdown→LaTeX translation hits a wall.
+- **Word / Google Docs** — binary drift, copy-paste hell, no version control. The thing this doc exists to replace.
+- **Typst** — newer typesetting system, growing community. Watch this space; could displace LaTeX for typeset documents in a few years.
+
+**Concrete examples in the doc**
+
+- Full project layout (`resume/`, `resume.md`, `variants/`, `templates/`, `scripts/build.py`, `dist/`, `.devcontainer/`).
+- A complete placeholder resume in markdown demonstrating the structure (header, summary, experience with bullets, education, skills, projects, certifications).
+- The `build.py` script with overlay-merging logic.
+- A Makefile interface (`make` / `make ats` / `make docx`).
+- A minimal ATS-safe LaTeX template (single column, no graphics).
+- A Dev Container Dockerfile with pandoc + texlive-xetex + texlive-fonts-recommended + weasyprint.
+- A `.gitignore` for the `dist/` output and gitignored PII patterns.
+- A GitHub Actions workflow that builds the PDF on every push to a release branch.
+- Pandoc YAML metadata block showing git SHA + date injection.
+
+**What's NOT in this doc**
+
+- Writing resume content (the words themselves — different skill).
+- Interview prep, cover letter strategy.
+- LinkedIn profile optimization.
+- Resume design theory (typography, layout — opinions vary; this doc picks one).
+- Salary negotiation.
 
 ---
 
